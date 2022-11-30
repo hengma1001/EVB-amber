@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 from utils import build_logger, evb_md_cfg
+from utils import render_jj_template
 
 
 logger = build_logger()
@@ -29,14 +30,39 @@ class EVBA(object):
             autoescape=False,
         )
 
-        mdin_amber = jj_env.get_template("mdin.j2")
-        scripts = mdin_amber.render(
-            {'grp_cfg': self.cfg.grp_cfg
-            }
-            )
-        with open('mdin', 'w') as f: 
-            f.write(scripts)
+        mdin_path = os.path.abspath('mdin')
+        render_jj_template(jj_env, 'mdin.j2', 
+                {'grp_cfg': self.cfg.grp_cfg}, mdin_path)
 
+        rc_min, rc_max = self.cfg.evb_cfg.rc_min, self.cfg.evb_cfg.rc_max
+        rc_inc  = self.cfg.evb_cfg.rc_inc
+        rc_list = np.arange(rc_min, rc_max+rc_inc, rc_inc)
+
+        for i, rc0 in enumerate(rc_list): 
+            save_path = f"evb_{i:03}_rc_{rc0:.2f}"
+            os.makedirs(save_path)
+
+            mr_evb = os.path.abspath(f"{save_path}/mr_evb")
+            render_jj_template(jj_env, 'mr_evb.j2', 
+                    {'evb': self.cfg.evb_cfg, 'rc0': rc0}, 
+                    mr_evb
+                    )
+
+            mp_evb = os.path.abspath(f"{save_path}/mp_evb")
+            render_jj_template(jj_env, 'mp_evb.j2', 
+                    {'evb': self.cfg.evb_cfg, 'rc0': rc0}, 
+                    mp_evb
+                    )
+            self.cfg.grp_cfg.mr_cfg.evb = mr_evb
+            self.cfg.grp_cfg.mp_cfg.evb = mp_evb
+            grp_file = os.path.abspath(f"{save_path}/grp_evb")
+            render_jj_template(jj_env, 'evb_grp.j2', 
+                    {'mdin': mdin_path, 'mr': self.cfg.grp_cfg.mr_cfg, 
+                    'mp': self.cfg.grp_cfg.mp_cfg}, 
+                    grp_file)
+            
+
+        # mr_evb = jj_env.get_template('mr_evb')
         # evb_grp = jj_env.get_template('evb_grp.j2')
         # scripts = mdin_amber.render(
         #     {'n_steps': self.md_cfg.n_steps, 
