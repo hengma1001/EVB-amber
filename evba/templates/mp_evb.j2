@@ -10,7 +10,7 @@
        dbonds_umb(1)%iatom = {{ evb.iatom }}, 
        dbonds_umb(1)%jatom = {{ evb.jatom }}, 
        dbonds_umb(1)%katom = {{ evb.katom }},
-       dbonds_umb(1)%k = 400.000, 
+       dbonds_umb(1)%k = {{ "%.2f"|format(const_spring) }}, 
        dbonds_umb(1)%ezero = {{ "%.2f"|format(rc0) }},
        morsify(1)%iatom = {{ evb.katom }}, 
        morsify(1)%jatom = {{ evb.jatom }},

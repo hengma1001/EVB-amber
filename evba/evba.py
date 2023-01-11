@@ -1,11 +1,13 @@
 import os
 import jinja2
+import subprocess
 import numpy as np
+import pandas as pd
 from pathlib import Path
 from typing import Optional
 
-from utils import build_logger, evb_md_cfg
-from utils import render_jj_template
+from .utils import build_logger, evb_md_cfg
+from .utils import render_jj_template, read_evbout
 
 
 logger = build_logger()
@@ -37,20 +39,27 @@ class EVBA(object):
         rc_min, rc_max = self.cfg.evb_cfg.rc_min, self.cfg.evb_cfg.rc_max
         rc_inc  = self.cfg.evb_cfg.rc_inc
         rc_list = np.arange(rc_min, rc_max+rc_inc, rc_inc)
+        K_k = self.cfg.evb_cfg.spring_const 
+        # [600 + 2000*abs(rc0**2 - 0.3) for rc0 in rc_list]
+        # K_k = [400 for rc0 in rc_list]
 
-        for i, rc0 in enumerate(rc_list): 
+        evb_df = []
+        for i, rc0 in enumerate(rc_list[::]): 
             save_path = f"evb_{i:03}_rc_{rc0:.2f}"
             os.makedirs(save_path)
 
+            const_spring = K_k # [i]
             mr_evb = os.path.abspath(f"{save_path}/mr_evb")
             render_jj_template(jj_env, 'mr_evb.j2', 
-                    {'evb': self.cfg.evb_cfg, 'rc0': rc0}, 
-                    mr_evb
+                    {'evb': self.cfg.evb_cfg, 'rc0': rc0, 
+                    'const_spring': const_spring}, 
+                    mr_evb,
                     )
 
             mp_evb = os.path.abspath(f"{save_path}/mp_evb")
             render_jj_template(jj_env, 'mp_evb.j2', 
-                    {'evb': self.cfg.evb_cfg, 'rc0': rc0}, 
+                    {'evb': self.cfg.evb_cfg, 'rc0': rc0, 
+                    'const_spring': const_spring}, 
                     mp_evb
                     )
             self.cfg.grp_cfg.mr_cfg.evb = mr_evb
@@ -60,18 +69,26 @@ class EVBA(object):
                     {'mdin': mdin_path, 'mr': self.cfg.grp_cfg.mr_cfg, 
                     'mp': self.cfg.grp_cfg.mp_cfg}, 
                     grp_file)
-            
 
-        # mr_evb = jj_env.get_template('mr_evb')
-        # evb_grp = jj_env.get_template('evb_grp.j2')
-        # scripts = mdin_amber.render(
-        #     {'n_steps': self.md_cfg.n_steps, 
-        #     'temperature': self.md_cfg.temperature,
-        #     }
-        #     )
-        # with open('evb_grp', 'w') as f: 
-        #     f.write(scripts)
+            run_cmd = f"{self.cfg.mpi_exe} -n 2 {self.cfg.sander_exe} -ng 2 -groupfile {grp_file}"
+            run_log = os.path.abspath(f"{save_path}/run_log")
+            process = subprocess.Popen(
+                run_cmd,
+                shell=True,
+                cwd=save_path,
+                stdout=open(run_log, 'w'),
+                stderr=subprocess.STDOUT,
+                preexec_fn=os.setsid
+            )
+            process.wait()
+            logger.info(f"Finished RC at {rc0:.2f}. ")
 
+            # evb_out = 
+            evb_out = read_evbout(os.path.abspath(f'{save_path}/evbout'))
+            evb_df += evb_out
+
+        evb_df = pd.DataFrame(evb_df)
+        evb_df.to_pickle('evb.pkl')
 
 
 if __name__ == '__main__': 
