@@ -98,6 +98,8 @@ class evb_cfg(BaseModel):
     iatom : int # i-k bond in mr
     jatom : int # j-k bond in mp
     katom : int
+    spring_const : float
+    xcnst : float
 
 class evb_md_cfg(BaseModel): 
     mpi_exe: Optional[str]
