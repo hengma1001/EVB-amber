@@ -1,0 +1,26 @@
+mpi_exe: /homes/ramanathana/mpich-install/bin/mpirun
+sander_exe: /homes/ramanathana/amber20/bin/sander.MPI
+
+grp_cfg: 
+  mr_cfg:
+    pdb: mr.crd
+    top: mr.top
+    rst: mr.rst
+  mp_cfg:
+    pdb: mr.crd
+    top: mp.top
+    rst: mp.rst
+  temperature: 300
+  n_steps: 500000
+
+evb_cfg: 
+  rc_min: -.6
+  rc_max: .6
+  rc_inc: 0.05
+  iatom: 8
+  jatom: 9
+  katom: 7
+  spring_const: 600
+  xcnst: 11.5
+
+
